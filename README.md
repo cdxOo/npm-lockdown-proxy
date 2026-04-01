@@ -9,21 +9,33 @@ This stuff was vibe coded with claude (pronounced "KLORT!!")
 ## Run
 
 ```sh
-node proxy.js
-```
+# env var defaults are PORT=4873 WHITELIST=whitelist.json 
+npx @cdxoo/npm-lockdown-proxy 
 
-| Env var | Default | Description |
-|---|---|---|
-| `PORT` | `4873` | Port to listen on |
-| `WHITELIST` | `whitelist.json` | Path to whitelist file |
+# or
+
+npm install -g @cdxoo/npm-lockdown-proxy
+npm-lockdown-proxy
+npm-lockdown-proxy-create-whitelist-form-lockfile some-package-lock.json [--merge]
+
+```
 
 ## Use
 
 ```sh
 npm install <pkg> --registry http://localhost:4873
-# or set it globally
+# or
+echo "registry=http://localhost:4873" >> my-project/.npmrc # or ~/.npmrc
+# or
 npm config set registry http://localhost:4873
 ```
+
+## Server Env Vars
+
+| Env var | Default | Description |
+|---|---|---|
+| `PORT` | `4873` | Port to listen on |
+| `WHITELIST` | `whitelist.json` | Path to whitelist file |
 
 ## Whitelist format
 

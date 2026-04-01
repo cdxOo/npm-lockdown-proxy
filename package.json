@@ -25,5 +25,15 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "keywords": [
+    "npm",
+    "registry",
+    "proxy",
+    "whitelist",
+    "lockdown",
+    "security",
+    "supply-chain"
+  ]
+
 }
