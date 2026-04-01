@@ -2,6 +2,10 @@
 
 A minimal npm registry proxy that blocks any package (or version) not on a whitelist.
 
+## AI Disclosure
+
+This stuff was vibe coded with claude (pronounced "KLORT!!")
+
 ## Run
 
 ```sh
