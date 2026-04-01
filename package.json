@@ -1,0 +1,29 @@
+{
+  "name": "npm-lockdown-proxy",
+  "version": "0.0.0",
+  "description": "Minimal npm registry proxy with package/version whitelisting",
+  "bin": {
+    "npm-lockdown-proxy": "./proxy.js"
+  },
+  "files": [
+    "proxy.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Jan Schwalbe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cdxOo/npm-lockdown-proxy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cdxOo/npm-lockdown-proxy/issues"
+  },
+  "homepage": "https://github.com/cdxOo/npm-lockdown-proxy#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+  }
+}
