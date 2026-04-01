@@ -1,6 +1,6 @@
 {
   "name": "npm-lockdown-proxy",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Minimal npm registry proxy with package/version whitelisting",
   "bin": {
     "npm-lockdown-proxy": "./proxy.js"
@@ -24,6 +24,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-  }
+  "dependencies": {}
 }
