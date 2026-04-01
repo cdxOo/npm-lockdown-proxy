@@ -15,19 +15,19 @@ function loadWhitelist() {
   try {
     raw = JSON.parse(fs.readFileSync(WHITELIST_FILE, 'utf8'));
   } catch {
-    console.warn(`WARNING: could not load whitelist from '${WHITELIST_FILE}' — all packages will be blocked`);
+    console.warn(`WARNING: could not load whitelist from '${WHITELIST_FILE}' - all packages will be blocked`);
     console.warn(`         Set the WHITELIST env var or create a whitelist.json in the working directory.`);
-    return {};
+    return new Map();
   }
-  // Normalise each entry to an array of allowed versions, or '*' for any.
-  const wl = {};
+  // Normalise each entry to a Set of allowed versions, or '*' for any.
+  const wl = new Map();
   for (const [pkg, versions] of Object.entries(raw)) {
     if (versions === '*') {
-      wl[pkg] = '*';
+      wl.set(pkg, '*');
     } else if (Array.isArray(versions)) {
-      wl[pkg] = versions;
+      wl.set(pkg, new Set(versions));
     } else {
-      wl[pkg] = [versions];
+      wl.set(pkg, new Set([versions]));
     }
   }
   return wl;
@@ -83,15 +83,15 @@ const server = http.createServer((req, res) => {
   const { pkg, version } = parseRequest(req.url.split('?')[0]);
 
   if (pkg !== null) {
-    if (!Object.keys(whitelist).includes(pkg)) {
+    if (!whitelist.has(pkg)) {
       console.log(`BLOCKED  ${req.method} ${req.url} - '${pkg}' not whitelisted`);
       return deny(res, `Package '${pkg}' is not on the whitelist`);
     }
 
-    const allowed = whitelist[pkg];
-    if (version !== null && allowed !== '*' && !allowed.includes(version)) {
+    const allowed = whitelist.get(pkg);
+    if (version !== null && allowed !== '*' && !allowed.has(version)) {
       console.log(`BLOCKED  ${req.method} ${req.url} - '${pkg}@${version}' not an allowed version`);
-      return deny(res, `Version '${version}' of '${pkg}' is not on the whitelist (allowed: ${allowed.join(', ')})`);
+      return deny(res, `Version '${version}' of '${pkg}' is not on the whitelist (allowed: ${[...allowed].join(', ')})`);
     }
   }
 
@@ -122,5 +122,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`npm proxy -> ${UPSTREAM} on http://localhost:${PORT}`);
-  console.log(`whitelist  ${WHITELIST_FILE} (${Object.keys(whitelist).length} packages)`);
+  console.log(`whitelist  ${WHITELIST_FILE} (${whitelist.size} packages)`);
 });

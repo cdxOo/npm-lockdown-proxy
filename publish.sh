@@ -13,7 +13,7 @@ if [[ "$BUMP" != "patch" && "$BUMP" != "minor" && "$BUMP" != "major" ]]; then
 fi
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "error: uncommitted changes — commit or stash before publishing"
+  echo "error: uncommitted changes - commit or stash before publishing"
   exit 1
 fi
 
