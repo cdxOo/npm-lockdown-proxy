@@ -1,0 +1,102 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('fs');
+
+const args = process.argv.slice(2).filter(a => a !== '--merge');
+const merge = process.argv.includes('--merge');
+const lockfile = args[0];
+const output = args[1] || 'whitelist.json';
+
+if (!lockfile) {
+  console.error('usage: npm-lockdown-proxy-whitelist-from-lockfile <package-lock.json> [whitelist.json] [--merge]');
+  process.exit(1);
+}
+
+const lock = JSON.parse(fs.readFileSync(lockfile, 'utf8'));
+
+if (lock.lockfileVersion < 2) {
+  console.error('error: lockfile version 2 or higher required (npm 7+)');
+  process.exit(1);
+}
+
+function confirm(prompt) {
+  process.stdout.write(prompt);
+  const fd = fs.openSync('/dev/tty', 'r');
+  const buf = Buffer.alloc(1);
+  let answer = '';
+  while (true) {
+    fs.readSync(fd, buf, 0, 1);
+    if (buf[0] === 0x0a) break; // newline
+    answer += buf.toString();
+  }
+  fs.closeSync(fd);
+  return answer.trim().toLowerCase() === 'y';
+}
+
+// Map<name, Set<version>>
+function parseLockfile(lock) {
+  const pkgs = new Map();
+  for (const [key, pkg] of Object.entries(lock.packages || {})) {
+    if (key === '') continue; // root package
+    if (pkg.link) continue;  // workspace symlinks
+    const name = key.replace(/^.*node_modules\//, '');
+    process.stdout.write(`\rparsing: ${name.padEnd(60)}`);
+    const versions = pkgs.get(name) ?? new Set();
+    versions.add(pkg.version);
+    pkgs.set(name, versions);
+  }
+  process.stdout.write('\r' + ' '.repeat(70) + '\r'); // clear line
+  return pkgs;
+}
+
+// Map<name, Set<version> | '*'>
+function loadWhitelist(file) {
+  const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const wl = new Map();
+  for (const [name, versions] of Object.entries(raw)) {
+    wl.set(name, versions === '*' ? '*' : new Set(versions));
+  }
+  return wl;
+}
+
+function serialize(wl) {
+  const out = {};
+  for (const [name, versions] of [...wl.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    out[name] = versions === '*' ? '*' : [...versions];
+  }
+  return JSON.stringify(out, null, 2);
+}
+
+const parsed = parseLockfile(lock);
+
+if (merge) {
+  if (!fs.existsSync(output)) {
+    console.error(`error: '${output}' does not exist, cannot merge`);
+    process.exit(1);
+  }
+  if (!confirm(`merge into '${output}'? [y/N] `)) {
+    console.log('aborted');
+    process.exit(0);
+  }
+  const existing = loadWhitelist(output);
+  for (const [name, versions] of parsed) {
+    if (!existing.has(name)) {
+      existing.set(name, versions);
+    } else if (existing.get(name) !== '*') {
+      const merged = existing.get(name);
+      for (const v of versions) merged.add(v);
+    }
+  }
+  fs.writeFileSync(output, serialize(existing));
+  console.log(`merged ${parsed.size} packages into ${output} (${existing.size} total)`);
+} else {
+  if (fs.existsSync(output)) {
+    if (!confirm(`'${output}' already exists, overwrite? [y/N] `)) {
+      console.log('aborted');
+      process.exit(0);
+    }
+  }
+  fs.writeFileSync(output, serialize(parsed));
+  console.log(`wrote ${parsed.size} packages to ${output}`);
+}
