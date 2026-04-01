@@ -16,7 +16,7 @@ npx @cdxoo/npm-lockdown-proxy
 
 npm install -g @cdxoo/npm-lockdown-proxy
 npm-lockdown-proxy
-npm-lockdown-proxy-create-whitelist-form-lockfile some-package-lock.json [--merge]
+npm-lockdown-proxy-whitelist-from-lockfile some-package-lock.json [--merge]
 
 ```
 
