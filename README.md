@@ -4,7 +4,7 @@ A minimal npm registry proxy that blocks any package (or version) not on a white
 
 ## AI Disclosure
 
-This stuff was vibe coded with claude (pronounced "KLORT!!")
+This stuff was vibe coded with claude (pronounced "KLORT!!"). I hope I never have to actually mantain this...
 
 ## Run
 
