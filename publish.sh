@@ -18,5 +18,5 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 npm version "$BUMP"
-git push --follow-tags
 npm publish
+git push --follow-tags

@@ -1,4 +1,4 @@
-# npm-lockdown-proxy
+# @cdxoo/npm-lockdown-proxy
 
 A minimal npm registry proxy that blocks any package (or version) not on a whitelist.
 
