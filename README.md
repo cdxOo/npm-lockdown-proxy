@@ -28,6 +28,12 @@ npm install <pkg> --registry http://localhost:4873
 echo "registry=http://localhost:4873" >> my-project/.npmrc # or ~/.npmrc
 # or
 npm config set registry http://localhost:4873
+
+# if you previously installed a version of the same package that is not whitelisted
+# you may hit the local npm cache which will make it fail in this case install with
+npm install --cache /dev/null ...
+# or clear the local cache with
+npm cache clean --force
 ```
 
 ## Server Env Vars

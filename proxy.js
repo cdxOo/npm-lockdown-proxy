@@ -40,17 +40,19 @@ process.on('SIGHUP', () => {
   console.log('whitelist reloaded');
 });
 
-// Parse the request pathname into { pkg, version }.
-// pkg     - package name (scoped or plain), null for npm-internal paths
-// version - string if this is a tarball request, otherwise null
+// Parse the request pathname into { pkg, version, isMetadata }.
+// pkg        - package name (scoped or plain), null for npm-internal paths
+// version    - string if this is a tarball request, otherwise null
+// isMetadata - true if this is a bare package metadata request
 function parseRequest(pathname) {
-  if (pathname.startsWith('/-/')) return { pkg: null, version: null };
+  pathname = decodeURIComponent(pathname);
+  if (pathname.startsWith('/-/')) return { pkg: null, version: null, isMetadata: false };
 
   const parts = pathname.slice(1).split('/'); // drop leading /
   let pkg, rest;
 
   if (parts[0].startsWith('@')) {
-    if (parts.length < 2) return { pkg: null, version: null };
+    if (parts.length < 2) return { pkg: null, version: null, isMetadata: false };
     pkg = `${parts[0]}/${parts[1]}`;
     rest = parts.slice(2);
   } else {
@@ -59,7 +61,6 @@ function parseRequest(pathname) {
   }
 
   // Tarball path: /pkg/-/pkg-1.2.3.tgz  or  /@scope/pkg/-/pkg-1.2.3.tgz
-  // rest would be ['-', 'pkg-1.2.3.tgz'] at this point
   let version = null;
   if (rest[0] === '-' && rest[1]?.endsWith('.tgz')) {
     const filename = rest[1];
@@ -70,7 +71,9 @@ function parseRequest(pathname) {
     }
   }
 
-  return { pkg, version };
+  const isMetadata = version === null && rest.length === 0;
+
+  return { pkg, version, isMetadata };
 }
 
 function deny(res, msg) {
@@ -79,8 +82,38 @@ function deny(res, msg) {
   res.end(body);
 }
 
+// Filter a package manifest to only include whitelisted versions.
+// Removes non-allowed entries from versions, time, and dist-tags.
+function filterManifest(body, allowed) {
+  const data = JSON.parse(body);
+
+  for (const v of Object.keys(data.versions || {})) {
+    if (!allowed.has(v)) delete data.versions[v];
+  }
+
+  for (const k of Object.keys(data.time || {})) {
+    if (k !== 'created' && k !== 'modified' && !allowed.has(k)) {
+      delete data.time[k];
+    }
+  }
+
+  for (const [tag, v] of Object.entries(data['dist-tags'] || {})) {
+    if (!allowed.has(v)) delete data['dist-tags'][tag];
+  }
+
+  // If latest was removed, point it at the highest remaining allowed version.
+  if (data['dist-tags'] && !data['dist-tags'].latest) {
+    const remaining = Object.keys(data.versions);
+    if (remaining.length > 0) {
+      data['dist-tags'].latest = remaining[remaining.length - 1];
+    }
+  }
+
+  return Buffer.from(JSON.stringify(data));
+}
+
 const server = http.createServer((req, res) => {
-  const { pkg, version } = parseRequest(req.url.split('?')[0]);
+  const { pkg, version, isMetadata } = parseRequest(req.url.split('?')[0]);
 
   if (pkg !== null) {
     if (!whitelist.has(pkg)) {
@@ -98,17 +131,36 @@ const server = http.createServer((req, res) => {
   console.log(`ALLOW    ${req.method} ${req.url}`);
 
   const url = new URL(req.url, UPSTREAM);
+
+  // When we need to filter the manifest, request uncompressed so we can parse it.
+  const needsFilter = isMetadata && pkg !== null && whitelist.get(pkg) !== '*';
+  const headers = { ...req.headers, host: url.hostname };
+  if (needsFilter) headers['accept-encoding'] = 'identity';
+
   const options = {
     hostname: url.hostname,
     port: url.port || 443,
     path: url.pathname + url.search,
     method: req.method,
-    headers: { ...req.headers, host: url.hostname },
+    headers,
   };
 
   const proxy = https.request(options, (upstream) => {
-    res.writeHead(upstream.statusCode, upstream.headers);
-    upstream.pipe(res);
+    if (!needsFilter) {
+      res.writeHead(upstream.statusCode, upstream.headers);
+      upstream.pipe(res);
+      return;
+    }
+
+    const chunks = [];
+    upstream.on('data', chunk => chunks.push(chunk));
+    upstream.on('end', () => {
+      const filtered = filterManifest(Buffer.concat(chunks), whitelist.get(pkg));
+      const responseHeaders = { ...upstream.headers, 'content-length': filtered.length };
+      delete responseHeaders['content-encoding'];
+      res.writeHead(upstream.statusCode, responseHeaders);
+      res.end(filtered);
+    });
   });
 
   proxy.on('error', (err) => {
