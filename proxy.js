@@ -132,7 +132,6 @@ const server = http.createServer((req, res) => {
 
   const url = new URL(req.url, UPSTREAM);
 
-  // When we need to filter the manifest, request uncompressed so we can parse it.
   const needsFilter = isMetadata && pkg !== null && whitelist.get(pkg) !== '*';
   const headers = { ...req.headers, host: url.hostname };
   if (needsFilter) headers['accept-encoding'] = 'identity';
@@ -155,9 +154,15 @@ const server = http.createServer((req, res) => {
     const chunks = [];
     upstream.on('data', chunk => chunks.push(chunk));
     upstream.on('end', () => {
-      const filtered = filterManifest(Buffer.concat(chunks), whitelist.get(pkg));
+      const raw = Buffer.concat(chunks);
+      if (raw.length === 0) {
+        res.writeHead(upstream.statusCode, upstream.headers);
+        res.end();
+        return;
+      }
+      const filtered = filterManifest(raw, whitelist.get(pkg));
       const responseHeaders = { ...upstream.headers, 'content-length': filtered.length };
-      delete responseHeaders['content-encoding'];
+      delete responseHeaders['transfer-encoding'];
       res.writeHead(upstream.statusCode, responseHeaders);
       res.end(filtered);
     });
