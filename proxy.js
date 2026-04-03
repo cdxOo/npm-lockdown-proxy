@@ -181,13 +181,13 @@ const server = http.createServer(async (req, res) => {
 async function handleRequest(req, res) {
   const { pkg, version, isTarball, isMetadata } = parseRequest(req.url.split('?')[0]);
 
+  const entry = pkg !== null ? (whitelist.get(pkg) ?? whitelist.get('*') ?? null) : null;
+
   if (pkg !== null) {
-    if (!whitelist.has(pkg)) {
+    if (!entry) {
       console.log(`BLOCKED  ${req.method} ${req.url} - '${pkg}' not whitelisted`);
       return deny(res, `Package '${pkg}' is not on the whitelist`);
     }
-
-    const entry = whitelist.get(pkg);
 
     if (isTarball && version === null) {
       console.log(`BLOCKED  ${req.method} ${req.url} - could not parse version from tarball filename`);
@@ -226,7 +226,7 @@ async function handleRequest(req, res) {
 
   const url = new URL(req.url, UPSTREAM);
 
-  const needsFilter = isMetadata && pkg !== null && whitelist.get(pkg) !== '*';
+  const needsFilter = isMetadata && entry !== null && entry !== '*';
   const headers = { ...req.headers, host: url.hostname };
   if (needsFilter) headers['accept-encoding'] = 'identity';
 
@@ -254,7 +254,7 @@ async function handleRequest(req, res) {
         res.end();
         return;
       }
-      const filtered = filterManifest(raw, whitelist.get(pkg));
+      const filtered = filterManifest(raw, entry);
       const responseHeaders = { ...upstream.headers, 'content-length': filtered.length };
       delete responseHeaders['transfer-encoding'];
       res.writeHead(upstream.statusCode, responseHeaders);

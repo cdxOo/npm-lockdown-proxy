@@ -5,6 +5,7 @@
 ### Added
 
 - `min-age N days` whitelist rule: allows any version of a package that was published at least N days ago. Can be used standalone (`"min-age 30 days"`) or combined with exact versions (`["1.2.3", "min-age 30 days"]`). Applies to both manifest filtering (package discovery) and individual tarball requests.
+- Global `"*"` whitelist key: a `min-age` rule assigned to the `"*"` key acts as a fallback for any package not explicitly listed. Per-package entries always take precedence.
 
 - `whitelist-from-lockfile`: versions within each package entry are now sorted lowest to highest in the serialized output
 

@@ -49,6 +49,7 @@ npm cache clean --force
 
 ```json
 {
+  "*":              "min-age 7 days",
   "express":        "*",
   "lodash":         "4.17.21",
   "@types/node":    ["18.19.9", "20.11.5"],
@@ -57,15 +58,18 @@ npm cache clean --force
 }
 ```
 
-| Value | Meaning |
-|---|---|
-| `"*"` | Any version |
-| `"1.2.3"` | Exact version only |
-| `["1.2.3", "4.5.6"]` | Any of these exact versions |
-| `"min-age N days"` | Any version published at least N days ago |
-| `["1.2.3", "min-age N days"]` | Exact version, or any version at least N days old |
+| Key | Value | Meaning |
+|---|---|---|
+| `"pkg"` | `"*"` | Any version of this package |
+| `"pkg"` | `"1.2.3"` | Exact version only |
+| `"pkg"` | `["1.2.3", "4.5.6"]` | Any of these exact versions |
+| `"pkg"` | `"min-age N days"` | Any version published at least N days ago |
+| `"pkg"` | `["1.2.3", "min-age N days"]` | Exact version, or any version at least N days old |
+| `"*"` | `"min-age N days"` | Global fallback: any package not explicitly listed is allowed if its requested version is at least N days old |
 
 `min-age` rules affect both package discovery and tarball downloads. When npm resolves a package without an explicit version, the manifest it receives will only list versions that satisfy the age requirement — newer versions are invisible to the resolver.
+
+The `"*"` global rule applies only to packages not explicitly listed. Per-package entries always take precedence.
 
 ## Behaviour
 
