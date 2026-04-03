@@ -6,6 +6,8 @@
 
 - `min-age N days` whitelist rule: allows any version of a package that was published at least N days ago. Can be used standalone (`"min-age 30 days"`) or combined with exact versions (`["1.2.3", "min-age 30 days"]`). Applies to both manifest filtering (package discovery) and individual tarball requests.
 
+- `whitelist-from-lockfile`: versions within each package entry are now sorted lowest to highest in the serialized output
+
 ### Fixed
 
 - `whitelist-from-lockfile.js` was missing from the `files` array in `package.json` and would not be included in the published npm tarball, making the `npm-lockdown-proxy-whitelist-from-lockfile` binary unavailable after install

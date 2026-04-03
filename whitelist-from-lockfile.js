@@ -60,10 +60,25 @@ function loadWhitelist(file) {
   return wl;
 }
 
+function semverCompare(a, b) {
+  const m = s => s.match(/^(\d+)\.(\d+)\.(\d+)(.*)?$/);
+  const ma = m(a), mb = m(b);
+  if (!ma || !mb) return a.localeCompare(b);
+  for (let i = 1; i <= 3; i++) {
+    const d = +ma[i] - +mb[i];
+    if (d !== 0) return d;
+  }
+  // pre-release suffix (e.g. -beta.0) sorts before the release
+  if (ma[4] === mb[4]) return 0;
+  if (!ma[4]) return 1;
+  if (!mb[4]) return -1;
+  return ma[4].localeCompare(mb[4]);
+}
+
 function serialize(wl) {
   const out = {};
   for (const [name, versions] of [...wl.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-    out[name] = versions === '*' ? '*' : [...versions];
+    out[name] = versions === '*' ? '*' : [...versions].sort(semverCompare);
   }
   return JSON.stringify(out, null, 2);
 }
