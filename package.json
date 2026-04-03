@@ -1,6 +1,6 @@
 {
   "name": "@cdxoo/npm-lockdown-proxy",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Minimal npm registry proxy with package/version whitelisting",
   "bin": {
     "npm-lockdown-proxy": "./proxy.js",
