@@ -7,7 +7,8 @@
     "npm-lockdown-proxy-whitelist-from-lockfile": "./whitelist-from-lockfile.js"
   },
   "files": [
-    "proxy.js"
+    "proxy.js",
+    "whitelist-from-lockfile.js"
   ],
   "engines": {
     "node": ">=18"

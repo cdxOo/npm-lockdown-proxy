@@ -46,13 +46,13 @@ process.on('SIGHUP', () => {
 // isMetadata - true if this is a bare package metadata request
 function parseRequest(pathname) {
   pathname = decodeURIComponent(pathname);
-  if (pathname.startsWith('/-/')) return { pkg: null, version: null, isMetadata: false };
+  if (pathname.startsWith('/-/')) return { pkg: null, version: null, isTarball: false, isMetadata: false };
 
   const parts = pathname.slice(1).split('/'); // drop leading /
   let pkg, rest;
 
   if (parts[0].startsWith('@')) {
-    if (parts.length < 2) return { pkg: null, version: null, isMetadata: false };
+    if (parts.length < 2) return { pkg: null, version: null, isTarball: false, isMetadata: false };
     pkg = `${parts[0]}/${parts[1]}`;
     rest = parts.slice(2);
   } else {
@@ -62,7 +62,9 @@ function parseRequest(pathname) {
 
   // Tarball path: /pkg/-/pkg-1.2.3.tgz  or  /@scope/pkg/-/pkg-1.2.3.tgz
   let version = null;
+  let isTarball = false;
   if (rest[0] === '-' && rest[1]?.endsWith('.tgz')) {
+    isTarball = true;
     const filename = rest[1];
     const basename = pkg.includes('/') ? pkg.split('/')[1] : pkg;
     const prefix = `${basename}-`;
@@ -71,9 +73,9 @@ function parseRequest(pathname) {
     }
   }
 
-  const isMetadata = version === null && rest.length === 0;
+  const isMetadata = !isTarball && rest.length === 0;
 
-  return { pkg, version, isMetadata };
+  return { pkg, version, isTarball, isMetadata };
 }
 
 function deny(res, msg) {
@@ -85,7 +87,12 @@ function deny(res, msg) {
 // Filter a package manifest to only include whitelisted versions.
 // Removes non-allowed entries from versions, time, and dist-tags.
 function filterManifest(body, allowed) {
-  const data = JSON.parse(body);
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    return body;
+  }
 
   for (const v of Object.keys(data.versions || {})) {
     if (!allowed.has(v)) delete data.versions[v];
@@ -113,7 +120,7 @@ function filterManifest(body, allowed) {
 }
 
 const server = http.createServer((req, res) => {
-  const { pkg, version, isMetadata } = parseRequest(req.url.split('?')[0]);
+  const { pkg, version, isTarball, isMetadata } = parseRequest(req.url.split('?')[0]);
 
   if (pkg !== null) {
     if (!whitelist.has(pkg)) {
@@ -122,6 +129,10 @@ const server = http.createServer((req, res) => {
     }
 
     const allowed = whitelist.get(pkg);
+    if (isTarball && version === null) {
+      console.log(`BLOCKED  ${req.method} ${req.url} - could not parse version from tarball filename`);
+      return deny(res, `Could not parse version from tarball filename`);
+    }
     if (version !== null && allowed !== '*' && !allowed.has(version)) {
       console.log(`BLOCKED  ${req.method} ${req.url} - '${pkg}@${version}' not an allowed version`);
       return deny(res, `Version '${version}' of '${pkg}' is not on the whitelist (allowed: ${[...allowed].join(', ')})`);
