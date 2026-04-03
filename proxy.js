@@ -228,7 +228,10 @@ async function handleRequest(req, res) {
 
   const needsFilter = isMetadata && entry !== null && entry !== '*';
   const headers = { ...req.headers, host: url.hostname };
-  if (needsFilter) headers['accept-encoding'] = 'identity';
+  if (needsFilter) {
+    headers['accept-encoding'] = 'identity';
+    headers['accept'] = 'application/json'; // force full manifest so time field is present for min-age checks
+  }
 
   const options = {
     hostname: url.hostname,

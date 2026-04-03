@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## v0.0.7
+
+### Fixed
+
+- Proxy now forces `Accept: application/json` when fetching upstream manifests that require filtering. Previously, clients such as `ncu` (npm-check-updates) sent `Accept: application/vnd.npm.install-v1+json`, which caused the upstream registry to return an abbreviated packument without the `time` field. Any `min-age` rule would then silently delete every version (since publish timestamps were missing), resulting in an empty `versions` object and errors like "No package versions were returned."
+
+## v0.0.6
 
 ### Added
 
