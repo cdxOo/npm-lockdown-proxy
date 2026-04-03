@@ -49,9 +49,11 @@ npm cache clean --force
 
 ```json
 {
-  "express":      "*",
-  "lodash":       "4.17.21",
-  "@types/node":  ["18.19.9", "20.11.5"]
+  "express":        "*",
+  "lodash":         "4.17.21",
+  "@types/node":    ["18.19.9", "20.11.5"],
+  "@cdxoo/dbscan":  "min-age 30 days",
+  "axios":          ["1.6.0", "min-age 14 days"]
 }
 ```
 
@@ -60,6 +62,10 @@ npm cache clean --force
 | `"*"` | Any version |
 | `"1.2.3"` | Exact version only |
 | `["1.2.3", "4.5.6"]` | Any of these exact versions |
+| `"min-age N days"` | Any version published at least N days ago |
+| `["1.2.3", "min-age N days"]` | Exact version, or any version at least N days old |
+
+`min-age` rules affect both package discovery and tarball downloads. When npm resolves a package without an explicit version, the manifest it receives will only list versions that satisfy the age requirement — newer versions are invisible to the resolver.
 
 ## Behaviour
 
