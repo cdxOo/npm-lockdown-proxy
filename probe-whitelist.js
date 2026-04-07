@@ -308,7 +308,15 @@ async function main() {
     for (const r of blocked) {
       // Prefer the valid version (already compliant); fall back to the blocked
       // version so the user has something to paste and edit.
-      out[r.name] = r.validVersion ?? r.version;
+      const v = r.validVersion ?? r.version;
+      if (out[r.name] === undefined) {
+        out[r.name] = v;
+      } else {
+        // Same package required at multiple ranges — collect all versions.
+        const existing = Array.isArray(out[r.name]) ? out[r.name] : [out[r.name]];
+        if (!existing.includes(v)) existing.push(v);
+        out[r.name] = existing;
+      }
     }
     console.log(JSON.stringify(out, null, 2));
     return;
