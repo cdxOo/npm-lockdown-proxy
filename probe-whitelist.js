@@ -20,8 +20,8 @@ const includePrerelease  = process.argv.includes('--include-prerelease');
 const silent             = process.argv.includes('--silent');
 
 function log(msg) { if (!silent) process.stderr.write(msg); }
-const arg = process.argv.filter(a => !a.startsWith('-'))[2];
-if (!arg) usage();
+const pkgArgs = process.argv.filter(a => !a.startsWith('-')).slice(2);
+if (pkgArgs.length === 0) usage();
 
 // Parse "name", "name@ver", "@scope/name", "@scope/name@ver"
 function parseArg(s) {
@@ -40,7 +40,7 @@ function parseArg(s) {
   return { name: s.slice(0, atIdx), range: s.slice(atIdx + 1) };
 }
 
-const { name: rootName, range: rootRange } = parseArg(arg);
+const roots = pkgArgs.map(parseArg);
 
 // --- HTTP ---
 
@@ -304,9 +304,9 @@ async function main() {
 
   whitelist = parseWhitelist(whitelistRaw);
 
-  log(`checking ${rootName}@${rootRange} via ${PROXY_URL}\n\n`);
+  log(`checking ${roots.map(r => `${r.name}@${r.range}`).join(', ')} via ${PROXY_URL}\n\n`);
 
-  await walk(rootName, rootRange);
+  await Promise.all(roots.map(r => walk(r.name, r.range)));
 
   log('\n');
 
