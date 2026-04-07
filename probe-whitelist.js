@@ -8,12 +8,13 @@ const PROXY_URL = process.env.PROXY || 'http://localhost:4873';
 const REGISTRY = 'https://registry.npmjs.org';
 
 function usage() {
-  console.error('usage: npm-lockdown-proxy-probe-whitelist <package[@version]> [--as-whitelist] [--probe-dev-deps] [--include-prerelease]');
+  console.error('usage: npm-lockdown-proxy-probe-whitelist <package[@version]> [--as-whitelist] [--all] [--probe-dev-deps] [--include-prerelease]');
   console.error('env:   PROXY=http://localhost:4873  (default)');
   process.exit(1);
 }
 
 const asWhitelist        = process.argv.includes('--as-whitelist');
+const showAll            = process.argv.includes('--all');
 const probeDevDeps       = process.argv.includes('--probe-dev-deps');
 const includePrerelease  = process.argv.includes('--include-prerelease');
 const arg = process.argv.filter(a => !a.startsWith('-'))[2];
@@ -212,7 +213,7 @@ function fetchMeta(name) {
 
 const visited = new Set();
 const blocked = [];
-let allowedCount = 0;
+const allowed = [];
 let whitelist;
 
 async function walk(name, range, requiredBy = null) {
@@ -240,10 +241,10 @@ async function walk(name, range, requiredBy = null) {
 
   const publishedAt = meta.time?.[resolved] ?? null;
   const entry = getEntry(whitelist, name);
-  const allowed = isVersionAllowed(entry, resolved, publishedAt);
+  const isAllowed = isVersionAllowed(entry, resolved, publishedAt);
 
-  if (allowed) {
-    allowedCount++;
+  if (isAllowed) {
+    allowed.push({ name, version: resolved, publishedAt, requiredBy });
   } else {
     const valid = findValidVersion(entry, meta);
     blocked.push({
@@ -291,18 +292,16 @@ async function main() {
 
   process.stderr.write('\n');
 
-  const total = blocked.length + allowedCount;
+  const total = blocked.length + allowed.length;
 
   if (blocked.length === 0) {
     if (asWhitelist) {
       console.log('{}');
-    } else {
+    } else if (!showAll) {
       console.log(`All ${total} package(s) are whitelisted.`);
+      return;
     }
-    return;
   }
-
-  blocked.sort((a, b) => a.name.localeCompare(b.name));
 
   if (asWhitelist) {
     const out = {};
@@ -315,19 +314,28 @@ async function main() {
     return;
   }
 
+  const rows = showAll
+    ? [
+        ...blocked.map(r => ({ ...r, status: 'blocked' })),
+        ...allowed.map(r => ({ ...r, status: 'valid', validVersion: null, validDate: null })),
+      ].sort((a, b) => a.name.localeCompare(b.name))
+    : blocked.sort((a, b) => a.name.localeCompare(b.name)).map(r => ({ ...r, status: 'blocked' }));
+
   const W = {
-    name:  Math.max(10, ...blocked.map(r => r.name.length)) + 2,
-    ver:   Math.max(9,  ...blocked.map(r => r.version.length)) + 2,
-    date:  12,
-    valid: Math.max(13, ...blocked.map(r => (r.validVersion ?? 'none').length)) + 2,
-    vdate: 16,
+    name:   Math.max(10, ...rows.map(r => r.name.length)) + 2,
+    ver:    Math.max(9,  ...rows.map(r => r.version.length)) + 2,
+    date:   12,
+    status: 9,
+    valid:  Math.max(13, ...blocked.map(r => (r.validVersion ?? 'none').length)) + 2,
+    vdate:  16,
   };
 
   const header =
-    pad('Package',       W.name)  +
-    pad('Version',       W.ver)   +
-    pad('Published',     W.date)  +
-    pad('Valid Version', W.valid) +
+    pad('Package',        W.name)   +
+    pad('Version',        W.ver)    +
+    pad('Published',      W.date)   +
+    pad('Status',         W.status) +
+    pad('Valid Version',  W.valid)  +
     pad('Valid Published', W.vdate) +
     'Required by';
 
@@ -335,13 +343,14 @@ async function main() {
   console.log(header);
   console.log('─'.repeat(header.length));
 
-  for (const r of blocked) {
+  for (const r of rows) {
     console.log(
-      pad(r.name,                       W.name)  +
-      pad(r.version,                    W.ver)   +
-      pad(fmtDate(r.publishedAt),       W.date)  +
-      pad(r.validVersion ?? 'none',     W.valid) +
-      pad(r.validVersion ? fmtDate(r.validDate) : '—', W.vdate) +
+      pad(r.name,                                           W.name)   +
+      pad(r.version,                                        W.ver)    +
+      pad(fmtDate(r.publishedAt),                           W.date)   +
+      pad(r.status,                                         W.status) +
+      pad(r.validVersion ?? (r.status === 'valid' ? '—' : 'none'), W.valid) +
+      pad(r.validVersion ? fmtDate(r.validDate) : '—',     W.vdate)  +
       (r.requiredBy ?? '(root)')
     );
   }
