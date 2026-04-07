@@ -161,23 +161,23 @@ function isPrerelease(v) {
   return (parseSemver(v)?.pre ?? '') !== '';
 }
 
-function findValidVersion(entry, meta) {
+function findValidVersion(entry, meta, range) {
   if (!entry || entry === '*') return null;
   const timeMap = meta.time || {};
   const allVersions = Object.keys(meta.versions || {})
-    .filter(v => includePrerelease || !isPrerelease(v))
+    .filter(v => (includePrerelease || !isPrerelease(v)) && satisfies(v, range))
     .sort(semverCmp);
 
-  // Prefer the highest whitelisted exact version that exists in the registry
+  // Prefer the highest whitelisted exact version that satisfies the range
   const exactCandidates = [...entry.exact]
-    .filter(v => meta.versions?.[v] && (includePrerelease || !isPrerelease(v)))
+    .filter(v => meta.versions?.[v] && (includePrerelease || !isPrerelease(v)) && satisfies(v, range))
     .sort(semverCmp);
   if (exactCandidates.length > 0) {
     const v = exactCandidates[exactCandidates.length - 1];
     return { version: v, date: timeMap[v] ?? null };
   }
 
-  // Newest version satisfying min-age
+  // Newest version satisfying min-age (and range)
   if (entry.minAgeDays !== null) {
     const now = Date.now();
     const qualifying = allVersions.filter(v => {
@@ -246,7 +246,7 @@ async function walk(name, range, requiredBy = null) {
   if (isAllowed) {
     allowed.push({ name, version: resolved, publishedAt, requiredBy });
   } else {
-    const valid = findValidVersion(entry, meta);
+    const valid = findValidVersion(entry, meta, range);
     blocked.push({
       name,
       version: resolved,
