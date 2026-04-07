@@ -18,7 +18,12 @@ function parseMinAge(str) {
 function loadWhitelist() {
   let raw;
   try {
-    raw = JSON.parse(fs.readFileSync(WHITELIST_FILE, 'utf8'));
+    if (WHITELIST_FILE.endsWith('.js')) {
+      delete require.cache[require.resolve(WHITELIST_FILE)];
+      raw = require(WHITELIST_FILE);
+    } else {
+      raw = JSON.parse(fs.readFileSync(WHITELIST_FILE, 'utf8'));
+    }
   } catch {
     console.warn(`WARNING: could not load whitelist from '${WHITELIST_FILE}' - all packages will be blocked`);
     console.warn(`         Set the WHITELIST env var or create a whitelist.json in the working directory.`);

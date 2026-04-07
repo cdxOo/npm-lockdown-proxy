@@ -45,17 +45,18 @@ npm cache clean --force
 
 ## Whitelist format
 
-`whitelist.json` is an object. The value controls which versions are allowed:
+The whitelist can be a `.js` or `.json` file — set via the `WHITELIST` env var. `.js` is recommended as it supports comments and trailing commas.
 
-```json
-{
-  "*":              "min-age 7 days",
-  "express":        "*",
-  "lodash":         "4.17.21",
-  "@types/node":    ["18.19.9", "20.11.5"],
-  "@cdxoo/dbscan":  "min-age 30 days",
-  "axios":          ["1.6.0", "min-age 14 days"]
-}
+```js
+// whitelist.js
+module.exports = {
+  "*":             "min-age 7 days",   // global fallback for unlisted packages
+  "express":       "*",
+  "lodash":        "4.17.21",
+  "@types/node":   ["18.19.9", "20.11.5"],
+  "@cdxoo/dbscan": "min-age 30 days",
+  "axios":         ["1.6.0", "min-age 14 days"],
+};
 ```
 
 | Key | Value | Meaning |

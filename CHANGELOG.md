@@ -5,6 +5,7 @@
 ### Added
 
 - `GET /_proxy/whitelist` endpoint returns the currently loaded whitelist as JSON in the same format as `whitelist.json`, sorted alphabetically by package name. Reflects the live in-memory state, so a `SIGHUP` reload is immediately visible.
+- `.js` whitelist support: the `WHITELIST` env var can now point to a `.js` file (`module.exports = { ... }`), enabling comments and trailing commas. `.json` files continue to work unchanged. `whitelist-from-lockfile` defaults to generating `whitelist.js` and adds a header comment to generated files.
 
 ## v0.0.7
 
