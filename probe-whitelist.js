@@ -125,6 +125,12 @@ function parseMinAge(str) {
   return m ? parseInt(m[1], 10) : null;
 }
 
+function parseMaxDate(str) {
+  const m = /^max-date\s+(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?/.exec(str);
+  if (!m) return null;
+  return new Date(`${m[1]}T${m[2] ?? '12:00'}:00Z`);
+}
+
 function parseWhitelist(raw) {
   const wl = new Map();
   for (const [pkg, value] of Object.entries(raw)) {
@@ -134,12 +140,15 @@ function parseWhitelist(raw) {
       const values = Array.isArray(value) ? value : [value];
       const exact = new Set();
       let minAgeDays = null;
+      let maxDate = null;
       for (const v of values) {
         const age = parseMinAge(v);
+        const md  = parseMaxDate(v);
         if (age !== null) minAgeDays = age;
+        else if (md !== null) maxDate = md;
         else exact.add(v);
       }
-      wl.set(pkg, { exact, minAgeDays });
+      wl.set(pkg, { exact, minAgeDays, maxDate });
     }
   }
   return wl;
@@ -153,11 +162,12 @@ function isVersionAllowed(entry, version, publishedAt) {
   if (!entry) return false;
   if (entry === '*') return true;
   if (entry.exact.has(version)) return true;
-  if (entry.minAgeDays !== null && publishedAt) {
-    const ageDays = (Date.now() - new Date(publishedAt).getTime()) / 86400000;
-    return ageDays >= entry.minAgeDays;
-  }
-  return false;
+  const hasTimeRule = entry.minAgeDays !== null || entry.maxDate !== null;
+  if (!hasTimeRule || !publishedAt) return false;
+  const pubTime = new Date(publishedAt).getTime();
+  if (entry.minAgeDays !== null && (Date.now() - pubTime) / 86400000 < entry.minAgeDays) return false;
+  if (entry.maxDate !== null && pubTime > entry.maxDate.getTime()) return false;
+  return true;
 }
 
 function isPrerelease(v) {
@@ -180,12 +190,16 @@ function findValidVersion(entry, meta, range) {
     return { version: v, date: timeMap[v] ?? null };
   }
 
-  // Newest version satisfying min-age (and range)
-  if (entry.minAgeDays !== null) {
+  // Newest version satisfying time-based rules (min-age and/or max-date) and range
+  if (entry.minAgeDays !== null || entry.maxDate !== null) {
     const now = Date.now();
     const qualifying = allVersions.filter(v => {
       const pub = timeMap[v];
-      return pub && (now - new Date(pub).getTime()) / 86400000 >= entry.minAgeDays;
+      if (!pub) return false;
+      const pubTime = new Date(pub).getTime();
+      if (entry.minAgeDays !== null && (now - pubTime) / 86400000 < entry.minAgeDays) return false;
+      if (entry.maxDate !== null && pubTime > entry.maxDate.getTime()) return false;
+      return true;
     });
     if (qualifying.length > 0) {
       const v = qualifying[qualifying.length - 1];

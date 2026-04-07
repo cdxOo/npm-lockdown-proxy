@@ -5,6 +5,7 @@
 ### Added
 
 - `GET /_proxy/whitelist` endpoint returns the currently loaded whitelist as JSON in the same format as `whitelist.json`, sorted alphabetically by package name. Reflects the live in-memory state, so a `SIGHUP` reload is immediately visible.
+- `max-date YYYY-MM-DD [HH:MM]` whitelist rule: allows only versions published on or before the given UTC date/time. Time defaults to `12:00` when omitted. Can be combined with exact versions and `min-age` in an array entry. Applies to both manifest filtering and tarball requests.
 - `npm-lockdown-proxy-probe-whitelist <package[@version]>` command: resolves the full transitive dependency tree of a package against the live proxy whitelist and reports which packages are blocked, the blocked version with its publish date, and the nearest valid whitelisted version with its publish date (if one exists). Queries the proxy's `/_proxy/whitelist` endpoint; target proxy configurable via `PROXY` env var.
 - `.js` whitelist support: the `WHITELIST` env var can now point to a `.js` file (`module.exports = { ... }`), enabling comments and trailing commas. `.json` files continue to work unchanged. `whitelist-from-lockfile` defaults to generating `whitelist.js` and adds a header comment to generated files. When `WHITELIST` is not set, the proxy prefers `whitelist.js` over `whitelist.json` if both are present.
 

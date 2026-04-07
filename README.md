@@ -50,12 +50,14 @@ The whitelist can be a `.js` or `.json` file — set via the `WHITELIST` env var
 ```js
 // whitelist.js
 module.exports = {
-  "*":             "min-age 7 days",   // global fallback for unlisted packages
+  "*":             "min-age 7 days",          // global fallback for unlisted packages
   "express":       "*",
   "lodash":        "4.17.21",
   "@types/node":   ["18.19.9", "20.11.5"],
   "@cdxoo/dbscan": "min-age 30 days",
   "axios":         ["1.6.0", "min-age 14 days"],
+  "some-pkg":      "max-date 2026-03-07",      // only versions published on or before this date
+  "other-pkg":     ["min-age 7 days", "max-date 2026-03-07 12:00"],
 };
 ```
 
@@ -65,10 +67,11 @@ module.exports = {
 | `"pkg"` | `"1.2.3"` | Exact version only |
 | `"pkg"` | `["1.2.3", "4.5.6"]` | Any of these exact versions |
 | `"pkg"` | `"min-age N days"` | Any version published at least N days ago |
+| `"pkg"` | `"max-date YYYY-MM-DD [HH:MM]"` | Any version published on or before this UTC date/time (time defaults to `12:00`) |
 | `"pkg"` | `["1.2.3", "min-age N days"]` | Exact version, or any version at least N days old |
 | `"*"` | `"min-age N days"` | Global fallback: any package not explicitly listed is allowed if its requested version is at least N days old |
 
-`min-age` rules affect both package discovery and tarball downloads. When npm resolves a package without an explicit version, the manifest it receives will only list versions that satisfy the age requirement — newer versions are invisible to the resolver.
+`min-age` and `max-date` rules affect both package discovery and tarball downloads. When npm resolves a package without an explicit version, the manifest it receives will only list versions that satisfy the rules — others are invisible to the resolver.
 
 The `"*"` global rule applies only to packages not explicitly listed. Per-package entries always take precedence.
 

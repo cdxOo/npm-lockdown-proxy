@@ -15,6 +15,12 @@ function parseMinAge(str) {
   return m ? parseInt(m[1], 10) : null;
 }
 
+function parseMaxDate(str) {
+  const m = /^max-date\s+(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?/.exec(str);
+  if (!m) return null;
+  return new Date(`${m[1]}T${m[2] ?? '12:00'}:00Z`);
+}
+
 function loadWhitelist() {
   let raw;
   try {
@@ -29,7 +35,7 @@ function loadWhitelist() {
     console.warn(`         Set the WHITELIST env var or create a whitelist.json in the working directory.`);
     return new Map();
   }
-  // Normalise each entry to '*' (any version) or { exact: Set<string>, minAgeDays: number|null }.
+  // Normalise each entry to '*' (any version) or { exact: Set<string>, minAgeDays: number|null, maxDate: Date|null }.
   const wl = new Map();
   for (const [pkg, value] of Object.entries(raw)) {
     if (value === '*') {
@@ -38,15 +44,15 @@ function loadWhitelist() {
       const values = Array.isArray(value) ? value : [value];
       const exact = new Set();
       let minAgeDays = null;
+      let maxDate = null;
       for (const v of values) {
         const age = parseMinAge(v);
-        if (age !== null) {
-          minAgeDays = age;
-        } else {
-          exact.add(v);
-        }
+        const md  = parseMaxDate(v);
+        if (age !== null) minAgeDays = age;
+        else if (md !== null) maxDate = md;
+        else exact.add(v);
       }
-      wl.set(pkg, { exact, minAgeDays });
+      wl.set(pkg, { exact, minAgeDays, maxDate });
     }
   }
   return wl;
@@ -112,6 +118,7 @@ function serveWhitelist(res) {
     } else {
       const parts = [...entry.exact];
       if (entry.minAgeDays !== null) parts.push(`min-age ${entry.minAgeDays} days`);
+      if (entry.maxDate !== null) parts.push(`max-date ${entry.maxDate.toISOString().slice(0, 16).replace('T', ' ')}`);
       out[pkg] = parts.length === 1 ? parts[0] : parts;
     }
   }
@@ -157,10 +164,14 @@ function filterManifest(body, entry) {
     const now = Date.now();
     for (const v of Object.keys(data.versions || {})) {
       let keep = entry.exact.has(v);
-      if (!keep && entry.minAgeDays !== null) {
+      if (!keep && (entry.minAgeDays !== null || entry.maxDate !== null)) {
         const publishedAt = data.time?.[v];
         if (publishedAt) {
-          keep = (now - new Date(publishedAt).getTime()) / 86400000 >= entry.minAgeDays;
+          const pubTime = new Date(publishedAt).getTime();
+          let passes = true;
+          if (entry.minAgeDays !== null) passes = passes && (now - pubTime) / 86400000 >= entry.minAgeDays;
+          if (entry.maxDate !== null) passes = passes && pubTime <= entry.maxDate.getTime();
+          keep = passes;
         }
       }
       if (!keep) delete data.versions[v];
@@ -223,7 +234,7 @@ async function handleRequest(req, res) {
     if (version !== null && entry !== '*') {
       let allowed = entry.exact.has(version);
 
-      if (!allowed && entry.minAgeDays !== null) {
+      if (!allowed && (entry.minAgeDays !== null || entry.maxDate !== null)) {
         let publishedAt = null;
         try {
           const manifest = await fetchUpstreamJSON(`/${pkg}`);
@@ -233,17 +244,21 @@ async function handleRequest(req, res) {
           return deny(res, `Could not verify version age for '${pkg}'`);
         }
         if (publishedAt !== null) {
-          const ageDays = (Date.now() - new Date(publishedAt).getTime()) / 86400000;
-          allowed = ageDays >= entry.minAgeDays;
+          const pubTime = new Date(publishedAt).getTime();
+          let passes = true;
+          if (entry.minAgeDays !== null) passes = passes && (Date.now() - pubTime) / 86400000 >= entry.minAgeDays;
+          if (entry.maxDate !== null) passes = passes && pubTime <= entry.maxDate.getTime();
+          allowed = passes;
         }
       }
 
       if (!allowed) {
         console.log(`BLOCKED  ${req.method} ${req.url} - '${pkg}@${version}' not an allowed version`);
-        const reason = entry.minAgeDays !== null
-          ? `minimum age: ${entry.minAgeDays} days`
-          : `allowed: ${[...entry.exact].join(', ')}`;
-        return deny(res, `Version '${version}' of '${pkg}' is not on the whitelist (${reason})`);
+        const reasons = [];
+        if (entry.minAgeDays !== null) reasons.push(`minimum age: ${entry.minAgeDays} days`);
+        if (entry.maxDate !== null) reasons.push(`max-date: ${entry.maxDate.toISOString().slice(0, 16).replace('T', ' ')}`);
+        if (reasons.length === 0) reasons.push(`allowed: ${[...entry.exact].join(', ')}`);
+        return deny(res, `Version '${version}' of '${pkg}' is not on the whitelist (${reasons.join(', ')})`);
       }
     }
   }

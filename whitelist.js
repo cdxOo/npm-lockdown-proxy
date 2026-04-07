@@ -1,5 +1,5 @@
 // npm-lockdown-proxy whitelist
 // Supports JS comments and trailing commas.
 module.exports = {
-  "*": "min-age 30 days",
+  "*": "max-date 2026-03-07 12:00",
 };
