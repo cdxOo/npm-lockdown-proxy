@@ -8,7 +8,7 @@ const path = require('path');
 
 const UPSTREAM = 'https://registry.npmjs.org';
 const PORT = process.env.PORT || 4873;
-const WHITELIST_FILE = path.resolve(process.env.WHITELIST || 'whitelist.json');
+const WHITELIST_FILE = path.resolve(process.env.WHITELIST || (fs.existsSync('whitelist.js') ? 'whitelist.js' : 'whitelist.json'));
 
 function parseMinAge(str) {
   const m = /^min-age\s+(\d+)/.exec(str);

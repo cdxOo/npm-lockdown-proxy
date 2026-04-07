@@ -4,11 +4,13 @@
   "description": "Minimal npm registry proxy with package/version whitelisting",
   "bin": {
     "npm-lockdown-proxy": "./proxy.js",
-    "npm-lockdown-proxy-whitelist-from-lockfile": "./whitelist-from-lockfile.js"
+    "npm-lockdown-proxy-whitelist-from-lockfile": "./whitelist-from-lockfile.js",
+    "npm-lockdown-proxy-check": "./check-whitelist.js"
   },
   "files": [
     "proxy.js",
-    "whitelist-from-lockfile.js"
+    "whitelist-from-lockfile.js",
+    "check-whitelist.js"
   ],
   "engines": {
     "node": ">=18"
