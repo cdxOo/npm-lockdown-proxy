@@ -8,7 +8,7 @@ const PROXY_URL = process.env.PROXY || 'http://localhost:4873';
 const REGISTRY = 'https://registry.npmjs.org';
 
 function usage() {
-  console.error('usage: npm-lockdown-proxy-probe-whitelist <package[@version]> [--as-whitelist] [--all] [--probe-dev-deps] [--include-prerelease]');
+  console.error('usage: npm-lockdown-proxy-probe-whitelist <package[@version]> [--as-whitelist] [--all] [--probe-dev-deps] [--include-prerelease] [--silent]');
   console.error('env:   PROXY=http://localhost:4873  (default)');
   process.exit(1);
 }
@@ -17,6 +17,9 @@ const asWhitelist        = process.argv.includes('--as-whitelist');
 const showAll            = process.argv.includes('--all');
 const probeDevDeps       = process.argv.includes('--probe-dev-deps');
 const includePrerelease  = process.argv.includes('--include-prerelease');
+const silent             = process.argv.includes('--silent');
+
+function log(msg) { if (!silent) process.stderr.write(msg); }
 const arg = process.argv.filter(a => !a.startsWith('-'))[2];
 if (!arg) usage();
 
@@ -201,7 +204,7 @@ let fetchCount = 0;
 function fetchMeta(name) {
   if (!metaCache.has(name)) {
     fetchCount++;
-    process.stderr.write(`  [${fetchCount}] fetching ${name}\n`);
+    log(`  [${fetchCount}] fetching ${name}\n`);
     metaCache.set(name, getJSON(`${REGISTRY}/${name}`).catch(e => {
       throw new Error(`registry error for ${name}: ${e.message}`);
     }));
@@ -221,7 +224,7 @@ async function walk(name, range, requiredBy = null) {
   try {
     meta = await fetchMeta(name);
   } catch (e) {
-    process.stderr.write(`  warning: ${e.message}\n`);
+    log(`  warning: ${e.message}\n`);
     return;
   }
 
@@ -231,7 +234,7 @@ async function walk(name, range, requiredBy = null) {
     : (maxSatisfying(versions, range) ?? meta['dist-tags']?.latest);
 
   if (!resolved) {
-    process.stderr.write(`  warning: could not resolve ${name}@${range}\n`);
+    log(`  warning: could not resolve ${name}@${range}\n`);
     return;
   }
 
@@ -244,7 +247,7 @@ async function walk(name, range, requiredBy = null) {
   const isAllowed = isVersionAllowed(entry, resolved, publishedAt);
 
   if (isAllowed) {
-    allowed.push({ name, version: resolved, publishedAt, requiredBy });
+    allowed.push({ name, version: resolved, publishedAt, requiredBy, range });
   } else {
     const valid = findValidVersion(entry, meta, range);
     blocked.push({
@@ -254,6 +257,7 @@ async function walk(name, range, requiredBy = null) {
       validVersion: valid?.version ?? null,
       validDate: valid?.date ?? null,
       requiredBy,
+      range,
     });
   }
 
@@ -286,11 +290,11 @@ async function main() {
 
   whitelist = parseWhitelist(whitelistRaw);
 
-  process.stderr.write(`checking ${rootName}@${rootRange} via ${PROXY_URL}\n\n`);
+  log(`checking ${rootName}@${rootRange} via ${PROXY_URL}\n\n`);
 
   await walk(rootName, rootRange);
 
-  process.stderr.write('\n');
+  log('\n');
 
   const total = blocked.length + allowed.length;
 
@@ -336,6 +340,7 @@ async function main() {
     status: 9,
     valid:  Math.max(13, ...blocked.map(r => (r.validVersion ?? 'none').length)) + 2,
     vdate:  16,
+    range:  Math.max(7,  ...rows.map(r => (r.range ?? '—').length)) + 2,
   };
 
   const header =
@@ -345,6 +350,7 @@ async function main() {
     pad('Status',         W.status) +
     pad('Valid Version',  W.valid)  +
     pad('Valid Published', W.vdate) +
+    pad('Range',          W.range)  +
     'Required by';
 
   console.log(`${blocked.length} blocked / ${total} total packages:\n`);
@@ -359,6 +365,7 @@ async function main() {
       pad(r.status,                                         W.status) +
       pad(r.validVersion ?? (r.status === 'valid' ? '—' : 'none'), W.valid) +
       pad(r.validVersion ? fmtDate(r.validDate) : '—',     W.vdate)  +
+      pad(r.range ?? '—',                                   W.range)  +
       (r.requiredBy ?? '(root)')
     );
   }
