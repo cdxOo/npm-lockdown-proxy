@@ -8,12 +8,13 @@ const PROXY_URL = process.env.PROXY || 'http://localhost:4873';
 const REGISTRY = 'https://registry.npmjs.org';
 
 function usage() {
-  console.error('usage: npm-lockdown-proxy-probe-whitelist <package[@version]>');
+  console.error('usage: npm-lockdown-proxy-probe-whitelist <package[@version]> [--as-whitelist]');
   console.error('env:   PROXY=http://localhost:4873  (default)');
   process.exit(1);
 }
 
-const arg = process.argv[2];
+const asWhitelist = process.argv.includes('--as-whitelist');
+const arg = process.argv.filter(a => !a.startsWith('-'))[2];
 if (!arg) usage();
 
 // Parse "name", "name@ver", "@scope/name", "@scope/name@ver"
@@ -278,11 +279,26 @@ async function main() {
   const total = blocked.length + allowedCount;
 
   if (blocked.length === 0) {
-    console.log(`All ${total} package(s) are whitelisted.`);
+    if (asWhitelist) {
+      console.log('{}');
+    } else {
+      console.log(`All ${total} package(s) are whitelisted.`);
+    }
     return;
   }
 
   blocked.sort((a, b) => a.name.localeCompare(b.name));
+
+  if (asWhitelist) {
+    const out = {};
+    for (const r of blocked) {
+      // Prefer the valid version (already compliant); fall back to the blocked
+      // version so the user has something to paste and edit.
+      out[r.name] = r.validVersion ?? r.version;
+    }
+    console.log(JSON.stringify(out, null, 2));
+    return;
+  }
 
   const W = {
     name: Math.max(10, ...blocked.map(r => r.name.length)) + 2,
