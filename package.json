@@ -5,12 +5,12 @@
   "bin": {
     "npm-lockdown-proxy": "./proxy.js",
     "npm-lockdown-proxy-whitelist-from-lockfile": "./whitelist-from-lockfile.js",
-    "npm-lockdown-proxy-check": "./check-whitelist.js"
+    "npm-lockdown-proxy-probe-whitelist": "./probe-whitelist.js"
   },
   "files": [
     "proxy.js",
     "whitelist-from-lockfile.js",
-    "check-whitelist.js"
+    "probe-whitelist.js"
   ],
   "engines": {
     "node": ">=18"
