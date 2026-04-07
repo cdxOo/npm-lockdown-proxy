@@ -99,6 +99,22 @@ function deny(res, msg) {
   res.end(body);
 }
 
+function serveWhitelist(res) {
+  const out = {};
+  for (const [pkg, entry] of [...whitelist.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (entry === '*') {
+      out[pkg] = '*';
+    } else {
+      const parts = [...entry.exact];
+      if (entry.minAgeDays !== null) parts.push(`min-age ${entry.minAgeDays} days`);
+      out[pkg] = parts.length === 1 ? parts[0] : parts;
+    }
+  }
+  const body = JSON.stringify(out, null, 2);
+  res.writeHead(200, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) });
+  res.end(body);
+}
+
 // Fetch JSON from the upstream registry (used to check version publish times).
 function fetchUpstreamJSON(pkgPath) {
   return new Promise((resolve, reject) => {
@@ -179,6 +195,11 @@ const server = http.createServer(async (req, res) => {
 });
 
 async function handleRequest(req, res) {
+  if (req.method === 'GET' && req.url.split('?')[0] === '/_proxy/whitelist') {
+    console.log(`ALLOW    GET /_proxy/whitelist`);
+    return serveWhitelist(res);
+  }
+
   const { pkg, version, isTarball, isMetadata } = parseRequest(req.url.split('?')[0]);
 
   const entry = pkg !== null ? (whitelist.get(pkg) ?? whitelist.get('*') ?? null) : null;

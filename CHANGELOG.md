@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `GET /_proxy/whitelist` endpoint returns the currently loaded whitelist as JSON in the same format as `whitelist.json`, sorted alphabetically by package name. Reflects the live in-memory state, so a `SIGHUP` reload is immediately visible.
+
 ## v0.0.7
 
 ### Fixed
