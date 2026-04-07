@@ -215,7 +215,7 @@ const blocked = [];
 let allowedCount = 0;
 let whitelist;
 
-async function walk(name, range) {
+async function walk(name, range, requiredBy = null) {
   let meta;
   try {
     meta = await fetchMeta(name);
@@ -252,6 +252,7 @@ async function walk(name, range) {
       publishedAt,
       validVersion: valid?.version ?? null,
       validDate: valid?.date ?? null,
+      requiredBy,
     });
   }
 
@@ -260,7 +261,7 @@ async function walk(name, range) {
     ...Object.entries(versionMeta.dependencies || {}),
     ...(probeDevDeps ? Object.entries(versionMeta.devDependencies || {}) : []),
   ];
-  await Promise.all(deps.map(([depName, depRange]) => walk(depName, depRange)));
+  await Promise.all(deps.map(([depName, depRange]) => walk(depName, depRange, `${name}@${resolved}`)));
 }
 
 // --- Output ---
@@ -315,18 +316,20 @@ async function main() {
   }
 
   const W = {
-    name: Math.max(10, ...blocked.map(r => r.name.length)) + 2,
-    ver:  Math.max(9,  ...blocked.map(r => r.version.length)) + 2,
-    date: 12,
+    name:  Math.max(10, ...blocked.map(r => r.name.length)) + 2,
+    ver:   Math.max(9,  ...blocked.map(r => r.version.length)) + 2,
+    date:  12,
     valid: Math.max(13, ...blocked.map(r => (r.validVersion ?? 'none').length)) + 2,
+    vdate: 16,
   };
 
   const header =
-    pad('Package',       W.name) +
-    pad('Version',       W.ver)  +
-    pad('Published',     W.date) +
+    pad('Package',       W.name)  +
+    pad('Version',       W.ver)   +
+    pad('Published',     W.date)  +
     pad('Valid Version', W.valid) +
-    'Valid Published';
+    pad('Valid Published', W.vdate) +
+    'Required by';
 
   console.log(`${blocked.length} blocked / ${total} total packages:\n`);
   console.log(header);
@@ -334,11 +337,12 @@ async function main() {
 
   for (const r of blocked) {
     console.log(
-      pad(r.name,                    W.name) +
-      pad(r.version,                 W.ver)  +
-      pad(fmtDate(r.publishedAt),    W.date) +
-      pad(r.validVersion ?? 'none',  W.valid) +
-      (r.validVersion ? fmtDate(r.validDate) : '—')
+      pad(r.name,                       W.name)  +
+      pad(r.version,                    W.ver)   +
+      pad(fmtDate(r.publishedAt),       W.date)  +
+      pad(r.validVersion ?? 'none',     W.valid) +
+      pad(r.validVersion ? fmtDate(r.validDate) : '—', W.vdate) +
+      (r.requiredBy ?? '(root)')
     );
   }
 }
