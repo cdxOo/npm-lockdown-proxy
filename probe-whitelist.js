@@ -8,12 +8,14 @@ const PROXY_URL = process.env.PROXY || 'http://localhost:4873';
 const REGISTRY = 'https://registry.npmjs.org';
 
 function usage() {
-  console.error('usage: npm-lockdown-proxy-probe-whitelist <package[@version]> [--as-whitelist]');
+  console.error('usage: npm-lockdown-proxy-probe-whitelist <package[@version]> [--as-whitelist] [--probe-dev-deps] [--include-prerelease]');
   console.error('env:   PROXY=http://localhost:4873  (default)');
   process.exit(1);
 }
 
-const asWhitelist = process.argv.includes('--as-whitelist');
+const asWhitelist        = process.argv.includes('--as-whitelist');
+const probeDevDeps       = process.argv.includes('--probe-dev-deps');
+const includePrerelease  = process.argv.includes('--include-prerelease');
 const arg = process.argv.filter(a => !a.startsWith('-'))[2];
 if (!arg) usage();
 
@@ -154,13 +156,21 @@ function isVersionAllowed(entry, version, publishedAt) {
   return false;
 }
 
+function isPrerelease(v) {
+  return (parseSemver(v)?.pre ?? '') !== '';
+}
+
 function findValidVersion(entry, meta) {
   if (!entry || entry === '*') return null;
   const timeMap = meta.time || {};
-  const allVersions = Object.keys(meta.versions || {}).sort(semverCmp);
+  const allVersions = Object.keys(meta.versions || {})
+    .filter(v => includePrerelease || !isPrerelease(v))
+    .sort(semverCmp);
 
   // Prefer the highest whitelisted exact version that exists in the registry
-  const exactCandidates = [...entry.exact].filter(v => meta.versions?.[v]).sort(semverCmp);
+  const exactCandidates = [...entry.exact]
+    .filter(v => meta.versions?.[v] && (includePrerelease || !isPrerelease(v)))
+    .sort(semverCmp);
   if (exactCandidates.length > 0) {
     const v = exactCandidates[exactCandidates.length - 1];
     return { version: v, date: timeMap[v] ?? null };
@@ -245,7 +255,11 @@ async function walk(name, range) {
     });
   }
 
-  const deps = Object.entries(meta.versions?.[resolved]?.dependencies || {});
+  const versionMeta = meta.versions?.[resolved] ?? {};
+  const deps = [
+    ...Object.entries(versionMeta.dependencies || {}),
+    ...(probeDevDeps ? Object.entries(versionMeta.devDependencies || {}) : []),
+  ];
   await Promise.all(deps.map(([depName, depRange]) => walk(depName, depRange)));
 }
 
